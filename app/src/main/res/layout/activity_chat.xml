@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".chatActivity">
+
+    <com.google.android.material.imageview.ShapeableImageView
+        android:id="@+id/arrows"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/arrow_bidireccional"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+
+        android:layout_marginTop="50dp"
+        />
+
+    <TextView
+        android:id="@+id/device_i"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="@id/arrows"
+        app:layout_constraintBottom_toBottomOf="@id/arrows"
+        app:layout_constraintEnd_toStartOf="@id/arrows"
+        android:layout_marginEnd="10dp"
+        android:textSize="20dp"
+        android:textColor="@color/gris_2"
+        android:text="Null"
+        />
+
+    <TextView
+        android:id="@+id/device_d"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="@id/arrows"
+        app:layout_constraintBottom_toBottomOf="@id/arrows"
+        app:layout_constraintStart_toEndOf="@id/arrows"
+        android:layout_marginStart="10dp"
+        android:textSize="20dp"
+        android:textColor="@color/gris_2"
+        android:text="Null"
+        />
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/fondo"
+        android:layout_width="300dp"
+        android:layout_height="300dp"
+        android:background="@drawable/trazos_blue_2"
+        app:layout_constraintTop_toBottomOf="@id/arrows"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginTop="50dp"
+        >
+
+        <TextView
+            android:id="@+id/result"
+            android:layout_width="270dp"
+            android:layout_height="270dp"
+            android:gravity="center"
+            app:layout_constraintTop_toTopOf="@id/fondo"
+            app:layout_constraintEnd_toEndOf="@id/fondo"
+            app:layout_constraintStart_toStartOf="@id/fondo"
+            app:layout_constraintBottom_toBottomOf="@id/fondo"
+            android:text="Waiting to establish connection"
+            />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/interfaz"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/fondo"
+        android:layout_marginTop="70dp"
+        >
+
+     <com.google.android.material.textfield.TextInputEditText
+        android:id="@+id/message"
+        android:layout_width="200dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="@id/interfaz"
+        app:layout_constraintEnd_toEndOf="@id/interfaz"
+        app:layout_constraintStart_toStartOf="@id/interfaz"
+         app:layout_constraintBottom_toBottomOf="@id/interfaz"
+        android:hint="Write your message"
+        android:textColor="@color/gris_2"
+        android:maxLines="4"
+         android:maxWidth="200dp"
+         android:gravity="center"
+        />
+
+     <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/send"
+        android:layout_width="45dp"
+        android:layout_height="45dp"
+        app:layout_constraintStart_toEndOf="@id/message"
+         app:layout_constraintTop_toTopOf="@id/message"
+         app:layout_constraintBottom_toBottomOf="@id/message"
+        android:layout_marginStart="20dp"
+        android:background="@drawable/bordes_blue_2"
+        >
+
+        <com.google.android.material.imageview.ShapeableImageView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/message"
+            app:layout_constraintTop_toTopOf="@id/send"
+            app:layout_constraintStart_toStartOf="@id/send"
+            app:layout_constraintBottom_toBottomOf="@id/send"
+            android:layout_marginStart="4dp"
+            app:layout_constraintEnd_toEndOf="@id/send"
+            />
+     </androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <TextView
+        android:id="@+id/resumen"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Edit the device"
+        app:layout_constraintEnd_toEndOf="@id/fondo_name"
+        app:layout_constraintStart_toStartOf="@id/fondo_name"
+        app:layout_constraintBottom_toTopOf="@id/fondo_name"
+        android:layout_marginBottom="10dp"
+        android:textSize="15dp"
+        android:textColor="@color/gris_2"
+        android:textStyle="italic"
+        />
+    <View
+        android:id="@+id/centro"
+        android:layout_width="10dp"
+        android:layout_height="10dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        />
+    <View
+        android:id="@+id/fondo_name"
+        android:layout_width="250dp"
+        android:layout_height="110dp"
+        android:background="@drawable/bordes_blue_2"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/centro"
+        />
+
+    <EditText
+        android:id="@+id/name"
+        android:layout_width="250dp"
+        android:layout_height="100dp"
+        app:layout_constraintTop_toTopOf="@id/fondo_name"
+        app:layout_constraintEnd_toEndOf="@id/fondo_name"
+        app:layout_constraintStart_toStartOf="@id/fondo_name"
+        app:layout_constraintBottom_toBottomOf="@id/fondo_name"
+        android:maxLines="5"
+        android:gravity="center"
+        android:hint="Name"
+        />
+
+    <View
+        android:id="@+id/fondo_mac"
+        android:layout_width="250dp"
+        android:layout_height="110dp"
+        android:background="@drawable/bordes_blue_2"
+        app:layout_constraintTop_toBottomOf="@id/centro"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        />
+
+    <EditText
+        android:id="@+id/mac"
+        android:layout_width="250dp"
+        android:layout_height="100dp"
+        app:layout_constraintTop_toTopOf="@id/fondo_mac"
+        app:layout_constraintEnd_toEndOf="@id/fondo_mac"
+        app:layout_constraintStart_toStartOf="@id/fondo_mac"
+        app:layout_constraintBottom_toBottomOf="@id/fondo_mac"
+        android:maxLines="5"
+        android:gravity="center"
+        android:hint="Mac"
+        />
+
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/delete"
+        android:layout_width="55dp"
+        android:layout_height="55dp"
+        android:background="@drawable/bordes_blue_1"
+        app:layout_constraintTop_toBottomOf="@id/fondo_mac"
+        app:layout_constraintStart_toStartOf="@id/fondo_mac"
+        app:layout_constraintEnd_toStartOf="@id/centro"
+        android:layout_marginTop="20dp"
+        android:layout_marginStart="10dp"
+        >
+
+        <ImageView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/delete"
+            app:layout_constraintTop_toTopOf="@id/delete"
+            app:layout_constraintBottom_toBottomOf="@id/delete"
+            app:layout_constraintEnd_toEndOf="@id/delete"
+            app:layout_constraintStart_toStartOf="@id/delete"
+            />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/edit"
+        android:layout_width="55dp"
+        android:layout_height="55dp"
+        android:background="@drawable/bordes_blue_1"
+        app:layout_constraintTop_toBottomOf="@id/fondo_mac"
+        app:layout_constraintEnd_toEndOf="@id/fondo_mac"
+        app:layout_constraintStart_toEndOf="@id/centro"
+        android:layout_marginTop="20dp"
+        android:layout_marginEnd="10dp"
+        >
+
+        <ImageView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/edit"
+            app:layout_constraintTop_toTopOf="@id/edit"
+            app:layout_constraintBottom_toBottomOf="@id/edit"
+            app:layout_constraintEnd_toEndOf="@id/edit"
+            app:layout_constraintStart_toStartOf="@id/edit"
+            />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

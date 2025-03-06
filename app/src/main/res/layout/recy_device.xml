@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/all"
+    android:layout_width="match_parent"
+    android:layout_height="150dp"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="150dp"/>
+
+    <View
+        android:id="@+id/fondo"
+        android:layout_width="300dp"
+        android:layout_height="100dp"
+        android:background="@drawable/bordes_blue_1"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        />
+
+    <TextView
+        android:id="@+id/device_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="@id/fondo"
+        app:layout_constraintEnd_toEndOf="@id/fondo"
+        app:layout_constraintStart_toStartOf="@id/fondo"
+        android:textSize="15dp"
+        android:textColor="@color/white"
+        android:layout_marginTop="20dp"
+        />
+
+    <TextView
+        android:id="@+id/device_mac"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="@id/fondo"
+        app:layout_constraintEnd_toEndOf="@id/fondo"
+        app:layout_constraintStart_toStartOf="@id/fondo"
+        android:textSize="15dp"
+        android:textColor="@color/white"
+        android:layout_marginBottom="20dp"
+        />
+
+
+    <ImageView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/bluetooth"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/fondo"
+        />
+
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,0 +1,1 @@
+        val adapter = BluetoothAdapter.getDefaultAdapter()
