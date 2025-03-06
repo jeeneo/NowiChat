@@ -1,0 +1,1 @@
+NowiChat is a chat application with Bluetooth networks and hybrid cryptography, NowiChat's security is also in the MAC addresses which are encrypted with symmetric cryptography.
