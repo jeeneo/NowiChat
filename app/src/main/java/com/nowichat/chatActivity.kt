@@ -180,9 +180,9 @@ class chatActivity : AppCompatActivity() {
                     }
                 }
             }
-            Toast.makeText(applicationContext, "Shared keys", Toast.LENGTH_SHORT).show()
             asimetric.clear()
             withContext(Dispatchers.Main) {
+                Toast.makeText(applicationContext, "Shared keys", Toast.LENGTH_SHORT).show()
                 interfaz.visibility = View.VISIBLE
                 result.text = ""
             }
