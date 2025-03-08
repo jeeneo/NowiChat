@@ -41,13 +41,13 @@
 
 ## Screenshots
 
-![App Screenshot](https://github.com/cuadratico/NowiChat/blob/master/fastlane/metadata/android/en-US/images/phoneScreenshots/imgae_1.png)
+![App Screenshot](https://github.com/cuadratico/NowiChat/blob/master/fastlane/metadata/android/en-US/images/phoneScreenshots/image_1.png)
 
-![App Screenshot](https://github.com/cuadratico/NowiChat/blob/master/fastlane/metadata/android/en-US/images/phoneScreenshots/imgae_2.png)
+![App Screenshot](https://github.com/cuadratico/NowiChat/blob/master/fastlane/metadata/android/en-US/images/phoneScreenshots/image_2.png)
 
-![App Screenshot](https://github.com/cuadratico/NowiChat/blob/master/fastlane/metadata/android/en-US/images/phoneScreenshots/imgae_3.png)
+![App Screenshot](https://github.com/cuadratico/NowiChat/blob/master/fastlane/metadata/android/en-US/images/phoneScreenshots/image_3.png)
 
-![App Screenshot](https://github.com/cuadratico/NowiChat/blob/master/fastlane/metadata/android/en-US/images/phoneScreenshots/imgae_4.png)
+![App Screenshot](https://github.com/cuadratico/NowiChat/blob/master/fastlane/metadata/android/en-US/images/phoneScreenshots/image_4.png)
 
-![App Screenshot](https://github.com/cuadratico/NowiChat/blob/master/fastlane/metadata/android/en-US/images/phoneScreenshots/imgae_5.png)
+![App Screenshot](https://github.com/cuadratico/NowiChat/blob/master/fastlane/metadata/android/en-US/images/phoneScreenshots/image_5.png)
 
