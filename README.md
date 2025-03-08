@@ -2,6 +2,16 @@
 ![Logo](https://github.com/cuadratico/NowiChat/blob/master/fastlane/metadata/android/en-US/images/logo_NowiChat.webp)
 
 
+# Where is it safe to download NowiChat
+
+- Malicious sites where GitHub repositories are published are a reality so I'm going to tell you where you can download NowiChat without problems.
+
+[![Static Badge](https://img.shields.io/badge/Github-0.0.1-black)](https://github.com/cuadratico/NowiPass/releases)
+
+
+- important: Any page not mentioned is not legitimate and therefore I do not recommend downloading NowiChat from there. If the page contains a direct link to this repository, check its legitimacy. And remember to stay safe with all your interactions.
+
+
 # How can I support NowiChat?
 
 - You can donate the amount of money you want and be sure that that money will only be invested in the next updates of NowiPass and in the next developments of Nowi such as NowiChat, a chat app with bluetooth networks and hybrid cryptography
@@ -30,3 +40,14 @@
 
 
 ## Screenshots
+
+![App Screenshot](https://github.com/cuadratico/NowiChat/blob/master/fastlane/metadata/android/en-US/images/phoneScreenshots/imgae_1.png)
+
+![App Screenshot](https://github.com/cuadratico/NowiChat/blob/master/fastlane/metadata/android/en-US/images/phoneScreenshots/imgae_2.png)
+
+![App Screenshot](https://github.com/cuadratico/NowiChat/blob/master/fastlane/metadata/android/en-US/images/phoneScreenshots/imgae_3.png)
+
+![App Screenshot](https://github.com/cuadratico/NowiChat/blob/master/fastlane/metadata/android/en-US/images/phoneScreenshots/imgae_4.png)
+
+![App Screenshot](https://github.com/cuadratico/NowiChat/blob/master/fastlane/metadata/android/en-US/images/phoneScreenshots/imgae_5.png)
+
