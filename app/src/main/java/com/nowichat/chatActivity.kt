@@ -129,7 +129,6 @@ class chatActivity : AppCompatActivity() {
         }
 
         fun asimetric_global(){
-            result.text = "Sharing keys..."
             val kgs = KeyGenParameterSpec.Builder("key", KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT).apply {
                 setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                 setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
@@ -144,6 +143,9 @@ class chatActivity : AppCompatActivity() {
             asi()
         }
         scope = CoroutineScope(Dispatchers.IO).launch (start = CoroutineStart.LAZY){
+            withContext(Dispatchers.Main){
+                result.text = "Sharing keys..."
+            }
             asimetric_global()
             while (simetric.size != 2){
                 if (socket.inputStream.available() > 0){
@@ -309,7 +311,9 @@ class chatActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         scope.cancel()
-        socket.close()
+        if (socket.isConnected) {
+            socket.close()
+        }
         ks.deleteEntry("key")
     }
 

@@ -30,6 +30,7 @@ import android.graphics.Color
 import android.graphics.ColorSpace
 import android.graphics.drawable.ColorDrawable
 import android.hardware.camera2.params.ColorSpaceTransform
+import android.net.Uri
 import android.provider.Settings
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
@@ -71,6 +72,7 @@ import com.nowichat.db.mac_db
 import com.nowichat.recy_device.device_data
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import java.net.URI
 
 var d = false
 var upgrade = false
@@ -154,6 +156,27 @@ class MainActivity : AppCompatActivity() {
             finishAffinity()
         }
 
+        if (!pref.getBoolean("from", false)){
+            val alertdialog_donacion = AlertDialog.Builder(this)
+
+                .setTitle("Do you want to contribute ideas or donate money to the NowiPass project?")
+                .setPositiveButton("Ideas"){_, _ ->
+                    pref.edit().putBoolean("from", true).commit()
+
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://docs.google.com/forms/d/e/1FAIpQLScYWzcI8esljOk2NViS1O2yVN3I7_4UaNauJen0fSb3lUyTgw/viewform?usp=dialog")))
+                }
+                .setNegativeButton("Donate"){_, _ ->
+                    pref.edit().putBoolean("from", true).commit()
+
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://ko-fi.com/cuadratico")))
+                }
+                .setNeutralButton("No"){_, _ ->
+                    pref.edit().putBoolean("from", true).commit()
+                }
+
+            alertdialog_donacion.setCancelable(false)
+            alertdialog_donacion.show()
+        }
         val db_mac = mac_db(this)
         db_mac.extraccion()
 
@@ -166,11 +189,14 @@ class MainActivity : AppCompatActivity() {
 
             alert.show()
         }
+        val bluetooth_a = BluetoothAdapter.getDefaultAdapter()
+
         back.setOnClickListener {
             if (scope.isActive){
                 scope.cancel()
             }
-            if (broadcast.isOrderedBroadcast){
+            if (bluetooth_a.isDiscovering){
+                bluetooth_a.cancelDiscovery()
                 unregisterReceiver(broadcast)
             }
             recreate()
@@ -187,7 +213,6 @@ class MainActivity : AppCompatActivity() {
             d = false
             invisible()
 
-            val bluetooth_a = BluetoothAdapter.getDefaultAdapter()
 
             broadcast = object: BroadcastReceiver(){
                 override fun onReceive(p0: Context?, intent: Intent?) {
