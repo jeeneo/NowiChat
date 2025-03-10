@@ -18,7 +18,7 @@
 [![Static Badge](https://img.shields.io/badge/Donate-Kofi-blue)](https://ko-fi.com/cuadratico)
 
 - You can also contribute ideas to the project and give your opinion about it.
-[![Static Badge](https://img.shields.io/badge/Idea-form-blue)](https://forms.gle/sb3vNSLX4NteboBR6)
+[![Static Badge](https://img.shields.io/badge/Idea-form-blue)](https://forms.gle/z6nGwDR2c3cS7sBRA)
 
 
 # NowiChat
