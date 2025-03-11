@@ -5,6 +5,9 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothSocket
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -22,6 +25,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.app.ActivityCompat
 import androidx.core.view.ViewCompat
@@ -68,11 +72,14 @@ class chatActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.activity_chat)
+
+        delegate.localNightMode = AppCompatDelegate.MODE_NIGHT_YES
         val adapter = BluetoothAdapter.getDefaultAdapter()
 
+        window.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         val proposito = intent.extras!!.getBoolean("pro", false)
         val mac = intent.extras?.getString("mac", "").orEmpty()
-        val name = intent.extras?.getString("name", "").orEmpty()
 
         val device_i = findViewById<TextView>(R.id.device_i)
         device_i.text = adapter.name
@@ -83,7 +90,15 @@ class chatActivity : AppCompatActivity() {
         interfaz.visibility = View.INVISIBLE
         val message = findViewById<EditText>(R.id.message)
         val send = findViewById<ConstraintLayout>(R.id.send)
+        val fondo = findViewById<ConstraintLayout>(R.id.fondo)
 
+        fondo.setOnClickListener {
+            if (result.text.toString().isNotEmpty()) {
+                val manage_clip = this.getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+                val clip = ClipData.newPlainText("message", result.text.toString())
+                manage_clip.setPrimaryClip(clip)
+            }
+        }
 
         fun visible (texto: String){
             Toast.makeText(this, texto, Toast.LENGTH_SHORT).show()
@@ -295,6 +310,7 @@ class chatActivity : AppCompatActivity() {
             }else {
                 search()
             }
+            window.clearFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
         }
 
 

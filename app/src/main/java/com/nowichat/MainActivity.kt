@@ -47,6 +47,7 @@ import android.widget.SpinnerAdapter
 import android.widget.TextView
 import androidx.annotation.ChecksSdkIntAtLeast
 import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.widget.AppCompatEditText
 import androidx.constraintlayout.helper.widget.Carousel
 import androidx.core.widget.addTextChangedListener
@@ -104,6 +105,7 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge()
         setContentView(R.layout.activity_main)
         device_list.clear()
+        delegate.localNightMode = AppCompatDelegate.MODE_NIGHT_YES
 
         val scope = CoroutineScope(Dispatchers.IO).launch (start = CoroutineStart.LAZY){
             while (true){
