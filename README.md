@@ -6,7 +6,10 @@
 
 - Malicious sites where GitHub repositories are published are a reality so I'm going to tell you where you can download NowiChat without problems.
 
-[![Static Badge](https://img.shields.io/badge/Github-0.0.1-black)](https://github.com/cuadratico/NowiPass/releases)
+[![Static Badge](https://img.shields.io/badge/Github-0.0.3-black)](https://github.com/cuadratico/NowiPass/releases)
+
+[![Static Badge](https://img.shields.io/badge/izzysoft-0.0.3-blue)](https://apt.izzysoft.de/fdroid/index/apk/com.nowichat/)
+
 
 
 - important: Any page not mentioned is not legitimate and therefore I do not recommend downloading NowiChat from there. If the page contains a direct link to this repository, check its legitimacy. And remember to stay safe with all your interactions.
