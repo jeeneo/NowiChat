@@ -18,6 +18,9 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.Dialog
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.bluetooth.BluetoothDevice
 import android.content.BroadcastReceiver
 import android.content.ClipData
@@ -50,6 +53,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.widget.AppCompatEditText
 import androidx.constraintlayout.helper.widget.Carousel
+import androidx.core.app.NotificationCompat
 import androidx.core.widget.addTextChangedListener
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -77,27 +81,12 @@ import java.net.URI
 
 var d = false
 var upgrade = false
+
 class MainActivity : AppCompatActivity() {
     private lateinit var adapter : device_adapter
     private lateinit var broadcast : BroadcastReceiver
-    private val permisos_list = arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.ACCESS_FINE_LOCATION)
-    private fun delet_all(){
-        val mk = MasterKey.Builder(this)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        var pref = EncryptedSharedPreferences.create(this, "as", mk, EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV, EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
-        pref.edit().clear().commit()
+    private val permisos_list = arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.POST_NOTIFICATIONS)
 
-        pref = EncryptedSharedPreferences.create(this, "ap", mk, EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV, EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
-        pref.edit().clear().commit()
-        pref.edit().putBoolean("block", true).commit()
-
-        val db_device = device_db(this)
-        db_device.all()
-        val db_mac = mac_db(this)
-        db_mac.all()
-        finishAffinity()
-    }
     @SuppressLint("MissingInflatedId", "SetTextI18n", "WrongViewCast")
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -187,7 +176,7 @@ class MainActivity : AppCompatActivity() {
             val alert = AlertDialog.Builder(this)
 
             alert.setTitle("You want to delete all your information from NowiChat")
-            alert.setPositiveButton("Yes"){_, _ -> delet_all()}
+            alert.setPositiveButton("Yes"){_, _ -> delet_all(this)}
 
             alert.show()
         }
@@ -301,7 +290,7 @@ class MainActivity : AppCompatActivity() {
 
                             if (opor.text.toString().toInt() == 0){
                                 Toast.makeText(this, "You have exhausted all your opportunities", Toast.LENGTH_SHORT).show()
-                                delet_all()
+                                delet_all(this)
                                 dialog.dismiss()
                             }
                         }
@@ -377,6 +366,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray, deviceId: Int) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults, deviceId)
 
@@ -385,6 +375,12 @@ class MainActivity : AppCompatActivity() {
             if (!a.isEnabled) {
                 startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
             }
+
+            val manage_notify = this.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+            val canal = NotificationChannel("Noti_cha", "noti", NotificationManager.IMPORTANCE_HIGH)
+
+            manage_notify.createNotificationChannel(canal)
         }
     }
 

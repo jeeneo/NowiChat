@@ -117,4 +117,27 @@
             />
      </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/save_chat"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:background="@drawable/bordes_blue_2"
+        app:layout_constraintEnd_toEndOf="@id/interfaz"
+        app:layout_constraintStart_toStartOf="@id/interfaz"
+        app:layout_constraintTop_toBottomOf="@id/interfaz"
+        app:layout_constraintBottom_toBottomOf="parent"
+        >
+
+        <com.google.android.material.imageview.ShapeableImageView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/save_chat"
+            app:layout_constraintTop_toTopOf="@id/save_chat"
+            app:layout_constraintBottom_toBottomOf="@id/save_chat"
+            app:layout_constraintEnd_toEndOf="@id/save_chat"
+            app:layout_constraintStart_toStartOf="@id/save_chat"
+            />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>
