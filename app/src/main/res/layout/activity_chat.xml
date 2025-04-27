@@ -117,6 +117,15 @@
             android:fitsSystemWindows="true"
             app:layout_constraintBottom_toBottomOf="parent">
 
+            <ImageButton
+                android:id="@+id/attachButton"
+                android:layout_width="45dp"
+                android:layout_height="45dp"
+                android:src="@android:drawable/ic_menu_add"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:layout_marginEnd="8dp"
+                android:contentDescription="Attach file"/>
+
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/message"
                 android:layout_width="0dp"

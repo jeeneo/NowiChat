@@ -1,5 +1,12 @@
 package com.nowichat
 
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
+import android.view.View
+import android.widget.TextView
+import com.nowichat.models.FileType
+import com.nowichat.utils.FileHelper
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.NotificationManager
@@ -12,21 +19,22 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import android.util.Log
-import android.view.View
 import android.view.WindowManager
 import android.widget.EditText
-import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -57,6 +65,10 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.FileInputStream
+import java.io.File
+import java.io.IOException
+import java.nio.ByteBuffer
 import java.security.KeyFactory
 import java.security.KeyPairGenerator
 import java.security.KeyStore
@@ -68,6 +80,7 @@ import java.security.spec.X509EncodedKeySpec
 import java.util.UUID
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
+import javax.crypto.spec.ChaCha20ParameterSpec
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
@@ -76,7 +89,7 @@ private const val BLUETOOTH_PERMISSION_REQUEST = 101 // Define the constant
 
 private fun dialog_pass(context: Context) {
     Toast.makeText(context, "Saving chat history...", Toast.LENGTH_SHORT).show()
-    // TODO: Implement actual chat saving functionality
+    // TODO
 }
 
 class chatActivity : AppCompatActivity() {
@@ -88,6 +101,7 @@ class chatActivity : AppCompatActivity() {
     private lateinit var device_d: TextView
     private lateinit var mac: String
     private val simetric = mutableListOf<pass_data>()
+    private val asimetric = mutableListOf<pass_data>() // <-- add this if not present
     private var where = true
     private val uuid = "00001101-0000-1000-8000-00805F9B34FB"
     private val ks = KeyStore.getInstance("AndroidKeyStore").apply { 
@@ -96,10 +110,14 @@ class chatActivity : AppCompatActivity() {
 
     private fun error(message: String, details: String) {
         runOnUiThread {
-            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+            AlertDialog.Builder(this)
+                .setTitle(message)
+                .setMessage(details)
+                .setPositiveButton("OK") { _, _ -> finish() }
+                .setCancelable(false)
+                .show()
         }
         Log.e("error", details)
-        finish()
     }
 
     private fun visible(message: String) {
@@ -220,9 +238,6 @@ class chatActivity : AppCompatActivity() {
             }
         }
 
-        val simetric = mutableListOf<pass_data>()
-        val asimetric = mutableListOf<pass_data>()
-
         fun sim(){
             val kg_s = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES)
             kg_s.init(256)
@@ -319,47 +334,65 @@ class chatActivity : AppCompatActivity() {
 
                             val buffer = ByteArray(socket.inputStream.available())
                             socket.inputStream.read(buffer)
-                            var c = Cipher.getInstance("AES/GCM/NoPadding")
-                            c.init(Cipher.DECRYPT_MODE, ks.getKey("key", null), GCMParameterSpec(128, Base64.decode(simetric[1].iv, Base64.NO_WRAP)))
-                            val sime = SecretKeySpec(c.doFinal(Base64.decode(simetric[1].pass, Base64.NO_WRAP)), "AES")
+                            try {
+                                var c = Cipher.getInstance("AES/GCM/NoPadding")
+                                c.init(Cipher.DECRYPT_MODE, ks.getKey("key", null),
+                                    GCMParameterSpec(128, Base64.decode(simetric[1].iv, Base64.NO_WRAP)))
+                                val sime = SecretKeySpec(c.doFinal(Base64.decode(simetric[1].pass, Base64.NO_WRAP)), "AES")
 
-                            c = Cipher.getInstance("AES/GCM/NoPadding")
-                            c.init(Cipher.DECRYPT_MODE, sime, GCMParameterSpec(128, buffer.copyOfRange(0, 12)))
-                            val recept = c.doFinal(buffer.copyOfRange(12, buffer.size))
+                                // Extract IV and data from received buffer
+                                val iv = buffer.copyOfRange(0, 12)
+                                val encryptedData = buffer.copyOfRange(12, buffer.size)
 
-                            if (pref_ap.getBoolean("pass", false)) {
                                 c = Cipher.getInstance("AES/GCM/NoPadding")
-                                c.init(Cipher.ENCRYPT_MODE, ks.getKey(pref_as.getString("key", null), null))
+                                c.init(Cipher.DECRYPT_MODE, sime, GCMParameterSpec(128, iv))
+                                val recept = c.doFinal(encryptedData)
 
-                                history.add(history_data("The other user", Base64.encodeToString(c.doFinal(recept), Base64.NO_WRAP), Base64.encodeToString(c.iv, Base64.NO_WRAP)))
-                            }
-
-                            if (!where && ActivityCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
-                                val notificacion = NotificationCompat.Builder(applicationContext, "Noti_cha")
-                                    .setSmallIcon(R.mipmap.logo_nowi_chat_round)
-                                    .setContentTitle("You have a new message")
-                                    .setContentText(String(recept))
-                                    .setPriority(NotificationManager.IMPORTANCE_HIGH)
-                                    .build()
-
-                                NotificationManagerCompat.from(applicationContext).notify(1, notificacion)
-                            }
-                            withContext(Dispatchers.Main) {
-                                // Use proper context reference
                                 val messageText = String(recept)
-                                chatAdapter.addMessage(ChatMessage(messageText, false))
-                                messagesRecyclerView.layoutManager = LinearLayoutManager(this@chatActivity).apply {
-                                    stackFromEnd = true 
+                                
+                                if (messageText.startsWith("__FILE_START__")) {
+                                    // Handle file reception
+                                    Toast.makeText(applicationContext, "File sharing not implemented", Toast.LENGTH_SHORT).show()
+                                    continue
+                                } else {
+                                    // Handle regular text message
+                                    if (pref_ap.getBoolean("pass", false)) {
+                                        c = Cipher.getInstance("AES/GCM/NoPadding")
+                                        c.init(Cipher.ENCRYPT_MODE, ks.getKey(pref_as.getString("key", null), null))
+
+                                        history.add(history_data("The other user", Base64.encodeToString(c.doFinal(recept), Base64.NO_WRAP), Base64.encodeToString(c.iv, Base64.NO_WRAP)))
+                                    }
+
+                                    if (!where && ActivityCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+                                        val notificacion = NotificationCompat.Builder(applicationContext, "Noti_cha")
+                                            .setSmallIcon(R.mipmap.logo_nowi_chat_round)
+                                            .setContentTitle("You have a new message")
+                                            .setContentText(String(recept))
+                                            .setPriority(NotificationManager.IMPORTANCE_HIGH)
+                                            .build()
+
+                                        NotificationManagerCompat.from(applicationContext).notify(1, notificacion)
+                                    }
+                                    withContext(Dispatchers.Main) {
+                                        // Use proper context reference
+                                        val messageText = String(recept)
+                                        chatAdapter.addMessage(ChatMessage(messageText, false))
+                                        messagesRecyclerView.layoutManager = LinearLayoutManager(this@chatActivity).apply {
+                                            stackFromEnd = true 
+                                        }
+                                        messagesRecyclerView.adapter = chatAdapter
+                                    }
                                 }
-                                messagesRecyclerView.adapter = chatAdapter
-                            }
-                            
-                            val messageText = String(recept)
-                            if (messageText == "__EXIT__") {
-                                withContext(Dispatchers.Main) {
-                                    cleanupAndExit()
+
+                                if (messageText == "__EXIT__") {
+                                    withContext(Dispatchers.Main) {
+                                        cleanupAndExit()
+                                    }
+                                    break
                                 }
-                                break
+                            } catch (e: Exception) {
+                                handleDecryptionError(e, "Message decryption")
+                                continue
                             }
                         }
                     } catch (erro: Exception) {
@@ -401,9 +434,13 @@ class chatActivity : AppCompatActivity() {
                     messagesRecyclerView.scrollToPosition(chatAdapter.itemCount - 1)
 
                 } catch (erro: Exception) {
-                    error("Connection has been lost", erro.toString())
+                    error("Connection Error", erro.toString())
                 }
             }
+        }
+        // Add attachment button handler
+        binding.attachButton.setOnClickListener {
+            Toast.makeText(this, "File sharing not implemented", Toast.LENGTH_SHORT).show()
         }
 
         binding.deviceI.text = adapter.name ?: adapter.address ?: "this device"
@@ -418,6 +455,20 @@ class chatActivity : AppCompatActivity() {
             window.clearFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
         }
 
+    }
+
+    private fun showErrorDialog(title: String, message: String) {
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton("OK", null)
+            .show()
+    }
+
+    private fun generateGCMNonce(): ByteArray {
+        val nonce = ByteArray(12)
+        SecureRandom().nextBytes(nonce)
+        return nonce
     }
 
     @Deprecated("Deprecated in Java")
@@ -457,9 +508,10 @@ class chatActivity : AppCompatActivity() {
 
                 if (ActivityCompat.checkSelfPermission(this@chatActivity, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
                     val remoteDevice = socket.remoteDevice
+                    val deviceName = remoteDevice.name ?: remoteDevice.address
                     withContext(Dispatchers.Main) {
-                        binding.deviceD.text = remoteDevice.name ?: remoteDevice.address
-                        visible("A device has connected to you")
+                        binding.deviceD.text = deviceName
+                        visible("$deviceName has connected to you")
                     }
                 }
             } catch (e: Exception) {
@@ -520,5 +572,19 @@ class chatActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         where = true  
+    }
+
+    private suspend fun handleDecryptionError(e: Exception, operation: String) {
+        val errorMessage = when {
+            e.message?.contains("BAD_DECRYPT") == true -> 
+                "Decryption failed - message may be corrupted or using different encryption keys"
+            e.message?.contains("NO_PADDING") == true ->
+                "Invalid message format - padding error"
+            else -> "Decryption error: ${e.message}"
+        }
+        Log.e("Decryption", "$operation failed", e)
+        withContext(Dispatchers.Main) {
+            error("Message Error", errorMessage)
+        }
     }
 }
