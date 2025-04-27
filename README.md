@@ -15,7 +15,8 @@ Todo:
 3. Better notifications
 4. Sent/Read receipts (optional)
 5. Live typing
-6. Wi-Fi direct support
+6. Groups (connect multiple devices)
+7. Wi-Fi direct support
 
 ---
 
