@@ -11,7 +11,7 @@ Added:
 
 Todo:
 1. File/Photo sending
-2. Better persistant background service
+2. Better persistent background service
 3. Better notifications
 4. Sent/Read receipts (optional)
 5. Live typing
