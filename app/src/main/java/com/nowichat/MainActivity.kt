@@ -204,6 +204,11 @@ class MainActivity : AppCompatActivity() {
             d = false
             invisible()
 
+            // Request Bluetooth visibility for 300 seconds
+            val discoverableIntent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
+                putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
+            }
+            startActivity(discoverableIntent)
 
             broadcast = object: BroadcastReceiver(){
                 override fun onReceive(p0: Context?, intent: Intent?) {

@@ -330,6 +330,12 @@ class chatActivity : AppCompatActivity() {
 
         fun search(){
             try {
+                // Request Bluetooth visibility for 300 seconds
+                val discoverableIntent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
+                    putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
+                }
+                startActivity(discoverableIntent)
+                
                 socket = adapter.listenUsingRfcommWithServiceRecord("chat", UUID.fromString(uuid)).accept(10000)
                 visible("A device has connected to you")
             }catch (erro: Exception){
