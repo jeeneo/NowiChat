@@ -18,13 +18,14 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import android.util.Base64
 import android.util.Log
 import android.view.View
-import android.view.Window
 import android.view.WindowManager
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
@@ -36,11 +37,18 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import com.google.android.material.textfield.TextInputEditText
+import com.nowichat.chat.ChatAdapter
 import com.nowichat.db.device_db
 import com.nowichat.db.mac_db
+import com.nowichat.history_data
+import com.nowichat.models.ChatMessage
+import com.nowichat.databinding.ActivityChatBinding
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -49,58 +57,133 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.security.KeyFactory
 import java.security.KeyPairGenerator
 import java.security.KeyStore
-import java.security.MessageDigest
-import java.util.Base64
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
+import java.security.spec.AlgorithmParameterSpec
+import java.security.spec.PKCS8EncodedKeySpec
+import java.security.spec.X509EncodedKeySpec
 import java.util.UUID
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
-import kotlin.random.Random
-import com.nowichat.db.mac_db.Companion.macs_list
-import java.security.KeyFactory
-import java.security.PublicKey
-import java.security.SecureRandom
-import java.security.interfaces.RSAPublicKey
-import java.security.spec.PKCS8EncodedKeySpec
-import java.security.spec.RSAPublicKeySpec
-import java.security.spec.X509EncodedKeySpec
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
 val history = mutableListOf<history_data>()
-const val uuid = "00000000-0000-1000-8000-00805F9B34FB"
+private const val BLUETOOTH_PERMISSION_REQUEST = 101 // Define the constant
+
+private fun dialog_pass(context: Context) {
+    Toast.makeText(context, "Saving chat history...", Toast.LENGTH_SHORT).show()
+    // TODO: Implement actual chat saving functionality
+}
+
 class chatActivity : AppCompatActivity() {
+    private lateinit var binding: ActivityChatBinding
     private lateinit var socket: BluetoothSocket
     private lateinit var scope: Job
+    private lateinit var chatAdapter: ChatAdapter
+    private lateinit var adapter: BluetoothAdapter
+    private lateinit var device_d: TextView
+    private lateinit var mac: String
+    private val simetric = mutableListOf<pass_data>()
     private var where = true
-    private val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+    private val uuid = "00001101-0000-1000-8000-00805F9B34FB"
+    private val ks = KeyStore.getInstance("AndroidKeyStore").apply { 
+        load(null) 
+    }
+
+    private fun error(message: String, details: String) {
+        runOnUiThread {
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+        }
+        Log.e("error", details)
+        finish()
+    }
+
+    private fun visible(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+        scope.start()
+    }
+
+    private fun sendExitMessage() {
+        try {
+            if (socket.isConnected) {
+                var c = Cipher.getInstance("AES/GCM/NoPadding")
+                c.init(Cipher.DECRYPT_MODE, ks.getKey("key", null), GCMParameterSpec(128, 
+                    Base64.decode(simetric[0].iv, Base64.NO_WRAP)))
+                val sime = SecretKeySpec(c.doFinal(
+                    Base64.decode(simetric[0].pass, Base64.NO_WRAP)), "AES")
+
+                c = Cipher.getInstance("AES/GCM/NoPadding")
+                c.init(Cipher.ENCRYPT_MODE, sime)
+
+                socket.outputStream.write(c.iv + c.doFinal("__EXIT__".toByteArray()))
+            }
+        } catch (e: Exception) {
+            Log.e("error", "Error sending exit message: ${e.message}")
+        }
+    }
+
+    private fun cleanupAndExit() {
+        runOnUiThread {
+            Toast.makeText(applicationContext, "Chat ended", Toast.LENGTH_SHORT).show()
+        }
+        scope.cancel()
+        try {
+            socket.close()
+        } catch (e: Exception) {
+            Log.e("error", "Error closing socket: ${e.message}")
+        }
+        finish()
+    }
+
     @SuppressLint("MissingInflatedId")
     @RequiresApi(Build.VERSION_CODES.Q)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContentView(R.layout.activity_chat)
+        binding = ActivityChatBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        // Add exit button handler
+        binding.exitButton.setOnClickListener {
+            sendExitMessage()
+            cleanupAndExit()
+        }
+
+        // Add window insets handling
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, windowInsets ->
+            val imeInsets = windowInsets.getInsets(WindowInsetsCompat.Type.ime())
+            val navigationInsets = windowInsets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            binding.interfaz.setPadding(0, 0, 0, imeInsets.bottom + navigationInsets.bottom)
+            windowInsets
+        }
 
         delegate.localNightMode = AppCompatDelegate.MODE_NIGHT_YES
-        val adapter = BluetoothAdapter.getDefaultAdapter()
+        adapter = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+            bluetoothManager.adapter
+        } else {
+            @Suppress("DEPRECATION")
+            BluetoothAdapter.getDefaultAdapter()
+        }
 
         window.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
         window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         val proposito = intent.extras!!.getBoolean("pro", false)
-        val mac = intent.extras?.getString("mac", "").orEmpty()
 
-        val device_i = findViewById<TextView>(R.id.device_i)
-        device_i.text = adapter.name
-        val device_d = findViewById<TextView>(R.id.device_d)
-
-        val result = findViewById<TextView>(R.id.result)
-        val interfaz = findViewById<ConstraintLayout>(R.id.interfaz)
-        interfaz.visibility = View.INVISIBLE
+        device_d = findViewById<TextView>(R.id.device_d)
+        mac = intent.extras?.getString("mac", "").orEmpty()
+        binding.result.visibility = View.GONE
+        binding.interfaz.visibility = View.INVISIBLE
         val message = findViewById<EditText>(R.id.message)
         val send = findViewById<ConstraintLayout>(R.id.send)
-        val fondo = findViewById<ConstraintLayout>(R.id.fondo)
-        val save_chat = findViewById<ConstraintLayout>(R.id.save_chat)
+        val fondo = findViewById<View>(R.id.fondo)
+        val saveButton = findViewById<FloatingActionButton>(R.id.save_chat)
+        val messagesRecyclerView = findViewById<RecyclerView>(R.id.messagesRecyclerView)
 
         val mk = MasterKey.Builder(this)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -109,9 +192,9 @@ class chatActivity : AppCompatActivity() {
         val pref_as = EncryptedSharedPreferences.create(this, "as", mk, EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV, EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
 
         if (!pref_ap.getBoolean("pass", false)){
-            save_chat.visibility = View.INVISIBLE
+            saveButton.visibility = View.INVISIBLE
         }
-        save_chat.setOnClickListener {
+        saveButton.setOnClickListener {
             val chat_dialog = AlertDialog.Builder(this)
 
             chat_dialog.setTitle("You want to save the conversation in a text file")
@@ -129,22 +212,12 @@ class chatActivity : AppCompatActivity() {
             }
         }
 
-        fondo.setOnClickListener {
-            if (result.text.toString().isNotEmpty()) {
-                val manage_clip = this.getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
-                val clip = ClipData.newPlainText("message", result.text.toString())
+        binding.fondo?.setOnClickListener {
+            binding.result.text?.toString()?.takeIf { it.isNotEmpty() }?.let { text ->
+                val manage_clip = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+                val clip = ClipData.newPlainText("message", text)
                 manage_clip.setPrimaryClip(clip)
             }
-        }
-
-        fun visible (texto: String){
-            Toast.makeText(this, texto, Toast.LENGTH_SHORT).show()
-            scope.start()
-        }
-        fun error(texto: String, e: String){
-            Toast.makeText(this, texto, Toast.LENGTH_SHORT).show()
-            Log.e("error", e)
-            finish()
         }
 
         val simetric = mutableListOf<pass_data>()
@@ -158,7 +231,7 @@ class chatActivity : AppCompatActivity() {
             val c = Cipher.getInstance("AES/GCM/NoPadding")
             c.init(Cipher.ENCRYPT_MODE, ks.getKey("key", null))
 
-            simetric.add(pass_data(Base64.getEncoder().withoutPadding().encodeToString(c.doFinal(clave)), Base64.getEncoder().withoutPadding().encodeToString(c.iv)))
+            simetric.add(pass_data(Base64.encodeToString(c.doFinal(clave), Base64.NO_WRAP), Base64.encodeToString(c.iv, Base64.NO_WRAP)))
         }
 
         fun asi(){
@@ -170,11 +243,11 @@ class chatActivity : AppCompatActivity() {
             var c = Cipher.getInstance("AES/GCM/NoPadding")
 
             c.init(Cipher.ENCRYPT_MODE, ks.getKey("key", null))
-            asimetric.add(pass_data(Base64.getEncoder().withoutPadding().encodeToString(c.doFinal(claves.public.encoded)), Base64.getEncoder().withoutPadding().encodeToString(c.iv)))
+            asimetric.add(pass_data(Base64.encodeToString(c.doFinal(claves.public.encoded), Base64.NO_WRAP), Base64.encodeToString(c.iv, Base64.NO_WRAP)))
 
             c = Cipher.getInstance("AES/GCM/NoPadding")
             c.init(Cipher.ENCRYPT_MODE, ks.getKey("key", null))
-            asimetric.add(pass_data(Base64.getEncoder().withoutPadding().encodeToString(c.doFinal(claves.private.encoded)), Base64.getEncoder().withoutPadding().encodeToString(c.iv)))
+            asimetric.add(pass_data(Base64.encodeToString(c.doFinal(claves.private.encoded), Base64.NO_WRAP), Base64.encodeToString(c.iv, Base64.NO_WRAP)))
 
             socket.outputStream.write(claves.public.encoded)
         }
@@ -187,210 +260,253 @@ class chatActivity : AppCompatActivity() {
                 .build()
 
             val kg = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
-            kg.init(kgs)
+            kg.init(kgs as AlgorithmParameterSpec) // Specify AlgorithmParameterSpec
             kg.generateKey()
 
             sim()
             asi()
         }
-        scope = CoroutineScope(Dispatchers.IO).launch (start = CoroutineStart.LAZY){
-            val vibration_manage = applicationContext.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            val vibration = VibrationEffect.createWaveform(longArrayOf(0, 2, 10, 50, 0), -1)
-            vibration_manage.vibrate(vibration)
+        scope = CoroutineScope(Dispatchers.IO).launch(start = CoroutineStart.LAZY) {
+            try {
+                val vibration_manage = applicationContext.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+                val vibration = VibrationEffect.createWaveform(longArrayOf(0, 2, 10, 50, 0), -1)
+                vibration_manage.vibrate(vibration)
 
-            withContext(Dispatchers.Main){
-                result.text = "Sharing keys..."
-            }
-            asimetric_global()
-            while (simetric.size != 2){
-                if (socket.inputStream.available() > 0){
-                    val buffer = ByteArray(socket.inputStream.available())
-                    socket.inputStream.read(buffer)
-
-                    if (buffer.size > 256){
-                        val public_user = KeyFactory.getInstance(KeyProperties.KEY_ALGORITHM_RSA).generatePublic(X509EncodedKeySpec(buffer))
-                        var c = Cipher.getInstance("AES/GCM/NoPadding")
-                        c.init(Cipher.DECRYPT_MODE, ks.getKey("key", null), GCMParameterSpec(128, Base64.getDecoder().decode(simetric[0].iv)))
-                        val simetri = c.doFinal(Base64.getDecoder().decode(simetric[0].pass))
-
-                        c = Cipher.getInstance("RSA/ECB/PKCS1Padding")
-                        c.init(Cipher.ENCRYPT_MODE, public_user)
-
-                        socket.outputStream.write(c.doFinal(simetri))
-                    }else {
-                        var c = Cipher.getInstance("AES/GCM/NoPadding")
-                        c.init(Cipher.DECRYPT_MODE, ks.getKey("key", null), GCMParameterSpec(128, Base64.getDecoder().decode(asimetric[1].iv)))
-                        val private_k = KeyFactory.getInstance(KeyProperties.KEY_ALGORITHM_RSA).generatePrivate(PKCS8EncodedKeySpec(c.doFinal(Base64.getDecoder().decode(asimetric[1].pass))))
-
-                        c = Cipher.getInstance("RSA/ECB/PKCS1Padding")
-                        c.init(Cipher.DECRYPT_MODE, private_k)
-                        val sime_user = c.doFinal(buffer)
-
-                        c = Cipher.getInstance("AES/GCM/NoPadding")
-                        c.init(Cipher.ENCRYPT_MODE, ks.getKey("key", null))
-                        simetric.add(pass_data(Base64.getEncoder().withoutPadding().encodeToString(c.doFinal(sime_user)), Base64.getEncoder().withoutPadding().encodeToString(c.iv)))
-
-                    }
+                withContext(Dispatchers.Main) {
+                    binding.result.text = "Sharing keys..."
                 }
-            }
-            asimetric.clear()
-            withContext(Dispatchers.Main) {
-                Toast.makeText(applicationContext, "Shared keys", Toast.LENGTH_SHORT).show()
-                interfaz.visibility = View.VISIBLE
-                result.text = ""
-            }
-            while(true){
-                try {
+                asimetric_global()
+                while (simetric.size != 2) {
                     if (socket.inputStream.available() > 0) {
-
                         val buffer = ByteArray(socket.inputStream.available())
                         socket.inputStream.read(buffer)
-                        var c = Cipher.getInstance("AES/GCM/NoPadding")
-                        c.init(Cipher.DECRYPT_MODE, ks.getKey("key", null), GCMParameterSpec(128, Base64.getDecoder().decode(simetric[1].iv)))
-                        val sime = SecretKeySpec(c.doFinal(Base64.getDecoder().decode(simetric[1].pass)), "AES")
 
-                        c = Cipher.getInstance("AES/GCM/NoPadding")
-                        c.init(Cipher.DECRYPT_MODE, sime, GCMParameterSpec(128, buffer.copyOfRange(0, 12)))
-                        val recept = c.doFinal(buffer.copyOfRange(12, buffer.size))
+                        if (buffer.size > 256) {
+                            val public_user = KeyFactory.getInstance(KeyProperties.KEY_ALGORITHM_RSA).generatePublic(X509EncodedKeySpec(buffer))
+                            var c = Cipher.getInstance("AES/GCM/NoPadding")
+                            c.init(Cipher.DECRYPT_MODE, ks.getKey("key", null), GCMParameterSpec(128, Base64.decode(simetric[0].iv, Base64.NO_WRAP)))
+                            val simetri = c.doFinal(Base64.decode(simetric[0].pass, Base64.NO_WRAP))
 
-                        if (pref_ap.getBoolean("pass", false)){
+                            c = Cipher.getInstance("RSA/ECB/PKCS1Padding")
+                            c.init(Cipher.ENCRYPT_MODE, public_user)
+
+                            socket.outputStream.write(c.doFinal(simetri))
+                        } else {
+                            var c = Cipher.getInstance("AES/GCM/NoPadding")
+                            c.init(Cipher.DECRYPT_MODE, ks.getKey("key", null), GCMParameterSpec(128, Base64.decode(asimetric[1].iv, Base64.NO_WRAP)))
+                            val private_k = KeyFactory.getInstance(KeyProperties.KEY_ALGORITHM_RSA).generatePrivate(PKCS8EncodedKeySpec(c.doFinal(Base64.decode(asimetric[1].pass, Base64.NO_WRAP))))
+
+                            c = Cipher.getInstance("RSA/ECB/PKCS1Padding")
+                            c.init(Cipher.DECRYPT_MODE, private_k)
+                            val sime_user = c.doFinal(buffer)
+
                             c = Cipher.getInstance("AES/GCM/NoPadding")
-                            c.init(Cipher.ENCRYPT_MODE, ks.getKey(pref_as.getString("key", null), null))
+                            c.init(Cipher.ENCRYPT_MODE, ks.getKey("key", null))
+                            simetric.add(pass_data(Base64.encodeToString(c.doFinal(sime_user), Base64.NO_WRAP), Base64.encodeToString(c.iv, Base64.NO_WRAP)))
 
-                            history.add(history_data("The other user", Base64.getEncoder().withoutPadding().encodeToString(c.doFinal(recept)), Base64.getEncoder().withoutPadding().encodeToString(c.iv)))
-                        }
-
-                        if (!where && ActivityCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED){
-                            val notificacion = NotificationCompat.Builder(applicationContext, "Noti_cha")
-                                .setSmallIcon(R.mipmap.logo_nowi_chat_round)
-                                .setContentTitle("You have a new message")
-                                .setContentText(String(recept))
-                                .setPriority(NotificationManager.IMPORTANCE_HIGH)
-                                .build()
-
-                            NotificationManagerCompat.from(applicationContext).notify(1, notificacion)
-                        }
-                        withContext(Dispatchers.Main) {
-                            result.text = String(recept)
                         }
                     }
-                }catch (erro: Exception){
-                    Log.e("error", erro.toString())
                 }
-                delay(500)
-            }
-        }
+                asimetric.clear()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(applicationContext, "Shared keys", Toast.LENGTH_SHORT).show()
+                    binding.interfaz.visibility = View.VISIBLE
+                    binding.result.text = ""
+                }
+                while (true) {
+                    try {
+                        if (socket.inputStream.available() > 0) {
 
+                            val buffer = ByteArray(socket.inputStream.available())
+                            socket.inputStream.read(buffer)
+                            var c = Cipher.getInstance("AES/GCM/NoPadding")
+                            c.init(Cipher.DECRYPT_MODE, ks.getKey("key", null), GCMParameterSpec(128, Base64.decode(simetric[1].iv, Base64.NO_WRAP)))
+                            val sime = SecretKeySpec(c.doFinal(Base64.decode(simetric[1].pass, Base64.NO_WRAP)), "AES")
 
-        fun conection(){
+                            c = Cipher.getInstance("AES/GCM/NoPadding")
+                            c.init(Cipher.DECRYPT_MODE, sime, GCMParameterSpec(128, buffer.copyOfRange(0, 12)))
+                            val recept = c.doFinal(buffer.copyOfRange(12, buffer.size))
 
+                            if (pref_ap.getBoolean("pass", false)) {
+                                c = Cipher.getInstance("AES/GCM/NoPadding")
+                                c.init(Cipher.ENCRYPT_MODE, ks.getKey(pref_as.getString("key", null), null))
 
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
-
-                try {
-
-                    val device = adapter.getRemoteDevice(mac)
-                    socket = device.createRfcommSocketToServiceRecord(UUID.fromString(uuid))
-                    socket.connect()
-
-                    device_d.text = device.name
-                    visible("You have connected to")
-
-                    val mac_hash = Base64.getEncoder().withoutPadding().encodeToString(MessageDigest.getInstance("SHA256").digest(mac.toByteArray()))
-
-                    if (pref_ap.getBoolean("pass", false) && !macs_list.contains(mac_hash)){
-                        val dialog = AlertDialog.Builder(this).apply {
-
-                            setTitle("Do you want to save this device")
-                            setPositiveButton("Save"){_, _ ->
-                                val long = pref_ap.getInt("long", 0)
-
-                                val db_device = device_db(applicationContext)
-                                val db_mac = mac_db(applicationContext)
-
-                                val c = Cipher.getInstance("AES/GCM/NoPadding")
-                                c.init(Cipher.ENCRYPT_MODE, ks.getKey(pref_as.getString("key", ""), null))
-
-                                db_device.put(long, device_d.text.toString(), Base64.getEncoder().withoutPadding().encodeToString(c.doFinal(mac.toByteArray())), Base64.getEncoder().withoutPadding().encodeToString(c.iv))
-                                db_mac.put(long, mac_hash)
-                                db_mac.extraccion()
+                                history.add(history_data("The other user", Base64.encodeToString(c.doFinal(recept), Base64.NO_WRAP), Base64.encodeToString(c.iv, Base64.NO_WRAP)))
                             }
 
-                            setNegativeButton("No"){_, _ ->}
+                            if (!where && ActivityCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+                                val notificacion = NotificationCompat.Builder(applicationContext, "Noti_cha")
+                                    .setSmallIcon(R.mipmap.logo_nowi_chat_round)
+                                    .setContentTitle("You have a new message")
+                                    .setContentText(String(recept))
+                                    .setPriority(NotificationManager.IMPORTANCE_HIGH)
+                                    .build()
 
+                                NotificationManagerCompat.from(applicationContext).notify(1, notificacion)
+                            }
+                            withContext(Dispatchers.Main) {
+                                // Use proper context reference
+                                val messageText = String(recept)
+                                chatAdapter.addMessage(ChatMessage(messageText, false))
+                                messagesRecyclerView.layoutManager = LinearLayoutManager(this@chatActivity).apply {
+                                    stackFromEnd = true 
+                                }
+                                messagesRecyclerView.adapter = chatAdapter
+                            }
+                            
+                            val messageText = String(recept)
+                            if (messageText == "__EXIT__") {
+                                withContext(Dispatchers.Main) {
+                                    cleanupAndExit()
+                                }
+                                break
+                            }
                         }
-                        dialog.show()
+                    } catch (erro: Exception) {
+                        withContext(Dispatchers.Main) {
+                            error("Connection has been lost", erro.toString())
+                        }
+                        break
                     }
-
-                } catch (erro: Exception) {
-                    error("You could not connect to the device", erro.toString())
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    error("Connection error", e.toString())
                 }
             }
         }
 
-        fun search(){
-            try {
-                // Request Bluetooth visibility for 300 seconds
-                val discoverableIntent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
-                    putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
-                }
-                startActivity(discoverableIntent)
-                
-                socket = adapter.listenUsingRfcommWithServiceRecord("chat", UUID.fromString(uuid)).accept(10000)
-                visible("A device has connected to you")
-            }catch (erro: Exception){
-                error("The device has not been", erro.toString())
+        chatAdapter = ChatAdapter()
+        messagesRecyclerView.apply {
+            layoutManager = LinearLayoutManager(context).apply {
+                stackFromEnd = true 
             }
+            adapter = chatAdapter
         }
 
         send.setOnClickListener {
-            try {
-                var c = Cipher.getInstance("AES/GCM/NoPadding")
-                c.init(Cipher.DECRYPT_MODE, ks.getKey("key", null), GCMParameterSpec(128, Base64.getDecoder().decode(simetric[0].iv)))
-                val sime = SecretKeySpec(c.doFinal(Base64.getDecoder().decode(simetric[0].pass)), "AES")
+            val messageText = message.text.toString()
+            if (messageText.isNotEmpty()) {
+                try {
+                    var c = Cipher.getInstance("AES/GCM/NoPadding")
+                    c.init(Cipher.DECRYPT_MODE, ks.getKey("key", null), GCMParameterSpec(128, Base64.decode(simetric[0].iv, Base64.NO_WRAP)))
+                    val sime = SecretKeySpec(c.doFinal(Base64.decode(simetric[0].pass, Base64.NO_WRAP)), "AES")
 
-                c = Cipher.getInstance("AES/GCM/NoPadding")
-                c.init(Cipher.ENCRYPT_MODE, sime)
-
-                socket.outputStream.write(c.iv + c.doFinal(message.text.toString().toByteArray()))
-
-                if (pref_ap.getBoolean("pass", false)) {
                     c = Cipher.getInstance("AES/GCM/NoPadding")
-                    c.init(Cipher.ENCRYPT_MODE, ks.getKey(pref_as.getString("key", null), null))
-                    history.add(history_data("you", Base64.getEncoder().withoutPadding().encodeToString(c.doFinal(message.text.toString().toByteArray())), Base64.getEncoder().withoutPadding().encodeToString(c.iv)))
-                }
-                message.setText("")
+                    c.init(Cipher.ENCRYPT_MODE, sime)
 
-            }catch (erro: Exception){
-                error("Connection has been lost", erro.toString())
+                    socket.outputStream.write(c.iv + c.doFinal(messageText.toByteArray()))
+                    chatAdapter.addMessage(ChatMessage(messageText, true))
+                    message.setText("")
+                    messagesRecyclerView.scrollToPosition(chatAdapter.itemCount - 1)
+
+                } catch (erro: Exception) {
+                    error("Connection has been lost", erro.toString())
+                }
             }
         }
 
-        interfaz.post{
-            if (proposito){
+        binding.deviceI.text = adapter.name ?: adapter.address ?: "this device"
+        binding.deviceD.text = "(waiting...)"
+
+        binding.interfaz.post {
+            if (proposito) {
                 conection()
-            }else {
+            } else {
                 search()
             }
             window.clearFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
         }
 
+    }
 
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        super.onBackPressed()
+        sendExitMessage()
+        cleanupAndExit()
+    }
 
-
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
+    private fun search() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, 
+                    arrayOf(Manifest.permission.BLUETOOTH_CONNECT), 
+                    BLUETOOTH_PERMISSION_REQUEST)
+                return
+            }
+        } else {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                    arrayOf(Manifest.permission.BLUETOOTH),
+                    BLUETOOTH_PERMISSION_REQUEST)
+                return
+            }
         }
+        
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                withContext(Dispatchers.Main) {
+                    binding.result.text = "Waiting for connection..."
+                }
 
+                socket = withContext(Dispatchers.IO) {
+                    adapter.listenUsingRfcommWithServiceRecord("chat", UUID.fromString(uuid))
+                        .accept(30000) // 30 second timeout
+                }
+
+                if (ActivityCompat.checkSelfPermission(this@chatActivity, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
+                    val remoteDevice = socket.remoteDevice
+                    withContext(Dispatchers.Main) {
+                        binding.deviceD.text = remoteDevice.name ?: remoteDevice.address
+                        visible("A device has connected to you")
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    error("Device not found or connection timeout", e.toString())
+                }
+            }
+        }
+    }
+
+    private fun conection() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    withContext(Dispatchers.Main) {
+                        binding.result.text = "Connecting..."
+                    }
+
+                    val device = adapter.getRemoteDevice(mac)
+                    socket = device.createRfcommSocketToServiceRecord(UUID.fromString(uuid))
+                    
+                    withContext(Dispatchers.IO) {
+                        socket.connect()
+                    }
+
+                    val deviceName = intent.extras?.getString("name") 
+                        ?: device.name 
+                        ?: device.address
+
+                    withContext(Dispatchers.Main) {
+                        binding.deviceD.text = deviceName
+                        visible("You have connected to $deviceName")
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        error("Could not connect to device", e.toString())
+                    }
+                }
+            }
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
         scope.cancel()
         if (socket.isConnected) {
-            socket.close()
+            socket.close()  
         }
         ks.deleteEntry("key")
         history.clear()
@@ -403,12 +519,6 @@ class chatActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        where = true
-    }
-    @RequiresApi(Build.VERSION_CODES.O)
-    override fun onBackPressed() {
-        super.onBackPressed()
-        finish()
-
+        where = true  
     }
 }

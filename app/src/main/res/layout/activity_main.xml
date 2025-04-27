@@ -11,7 +11,7 @@
         android:id="@+id/recy"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        app:layout_constraintTop_toBottomOf="@id/delete_all"
+        app:layout_constraintTop_toBottomOf="@id/device_filter"
         app:layout_constraintBottom_toTopOf="@id/add_mac"
         android:layout_marginTop="5dp"
         android:layout_marginBottom="5dp"
@@ -171,5 +171,19 @@
             app:layout_constraintStart_toStartOf="@id/search_device"
             />
     </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <EditText
+        android:id="@+id/device_filter"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="15dp"
+        android:hint="Filter devices..."
+        android:padding="12dp"
+        android:background="@drawable/trazos_blue_2"
+        android:textColorHint="@color/blue_2"
+        android:textColor="@color/blue_2"
+        app:layout_constraintTop_toBottomOf="@id/delete_all"
+        android:layout_marginTop="10dp"
+        android:visibility="gone"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

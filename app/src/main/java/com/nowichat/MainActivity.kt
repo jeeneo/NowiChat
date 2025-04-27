@@ -1,73 +1,63 @@
 package com.nowichat
 
+import android.Manifest
+import android.annotation.SuppressLint
+import android.app.Dialog
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothManager
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import android.text.Editable
+import android.text.TextWatcher
+import android.util.Log
+import android.view.LayoutInflater
 import android.view.View
+import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.RequiresApi
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.appcompat.widget.AppCompatEditText
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.app.ActivityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.security.crypto.MasterKey
-import android.Manifest
-import android.annotation.SuppressLint
-import android.app.Activity
-import android.app.Dialog
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.bluetooth.BluetoothDevice
-import android.content.BroadcastReceiver
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
-import android.content.IntentFilter
-import android.content.pm.ActivityInfo
-import android.content.pm.PackageManager
-import android.graphics.Color
-import android.graphics.ColorSpace
-import android.graphics.drawable.ColorDrawable
-import android.hardware.camera2.params.ColorSpaceTransform
-import android.net.Uri
-import android.provider.Settings
-import android.security.keystore.KeyGenParameterSpec
-import android.security.keystore.KeyProperties
-import android.util.Log
-import android.view.LayoutInflater
-import android.view.WindowManager
-import android.view.WindowManager.LayoutParams
-import android.widget.Adapter
-import android.widget.AdapterView
-import android.widget.ArrayAdapter
-import android.widget.EditText
-import android.widget.Spinner
-import android.widget.SpinnerAdapter
-import android.widget.TextView
-import androidx.annotation.ChecksSdkIntAtLeast
-import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.app.AppCompatDelegate
-import androidx.appcompat.widget.AppCompatEditText
-import androidx.constraintlayout.helper.widget.Carousel
-import androidx.core.app.NotificationCompat
 import androidx.core.widget.addTextChangedListener
-import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.security.crypto.EncryptedSharedPreferences
-import com.google.android.material.imageview.ShapeableImageView
-import com.nowichat.db.device_db
-import com.nowichat.recy_device.device_adapter
+import androidx.security.crypto.MasterKey
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+import com.google.android.material.imageview.ShapeableImageView
+import com.nowichat.db.device_db
+import com.nowichat.recy_device.device_adapter
 import java.security.KeyStore
 import java.security.MessageDigest
+import java.security.SecureRandom
+import java.security.spec.AlgorithmParameterSpec
 import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -75,17 +65,30 @@ import javax.crypto.spec.GCMParameterSpec
 import com.nowichat.db.device_db.Companion.device_list
 import com.nowichat.db.mac_db
 import com.nowichat.recy_device.device_data
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.CoroutineStart
 import java.net.URI
 
 var d = false
-var upgrade = false
 
 class MainActivity : AppCompatActivity() {
     private lateinit var adapter : device_adapter
     private lateinit var broadcast : BroadcastReceiver
-    private val permisos_list = arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.POST_NOTIFICATIONS)
+    private val permisos_list = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        arrayOf(
+            Manifest.permission.BLUETOOTH_SCAN,
+            Manifest.permission.BLUETOOTH_CONNECT, 
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                Manifest.permission.POST_NOTIFICATIONS
+            } else {
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            }
+        )
+    } else {
+        arrayOf(
+            Manifest.permission.BLUETOOTH,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        )
+    }
 
     @SuppressLint("MissingInflatedId", "SetTextI18n", "WrongViewCast")
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -96,17 +99,6 @@ class MainActivity : AppCompatActivity() {
         device_list.clear()
         delegate.localNightMode = AppCompatDelegate.MODE_NIGHT_YES
 
-        val scope = CoroutineScope(Dispatchers.IO).launch (start = CoroutineStart.LAZY){
-            while (true){
-                if (upgrade){
-                    withContext(Dispatchers.Main) {
-                        adapter.upgrade()
-                    }
-                    upgrade = false
-                    delay(1000)
-                }
-            }
-        }
         fun permisos (): Boolean{
             permisos_list.map {permiso ->
                 if (ActivityCompat.checkSelfPermission(this, permiso) == PackageManager.PERMISSION_DENIED){
@@ -152,17 +144,17 @@ class MainActivity : AppCompatActivity() {
 
                 .setTitle("Do you want to contribute ideas or donate money to the NowiPass project?")
                 .setPositiveButton("Ideas"){_, _ ->
-                    pref.edit().putBoolean("from", true).commit()
+                    pref.edit().putBoolean("from", true).apply()
 
                     startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://docs.google.com/forms/d/e/1FAIpQLScYWzcI8esljOk2NViS1O2yVN3I7_4UaNauJen0fSb3lUyTgw/viewform?usp=dialog")))
                 }
                 .setNegativeButton("Donate"){_, _ ->
-                    pref.edit().putBoolean("from", true).commit()
+                    pref.edit().putBoolean("from", true).apply()
 
                     startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://ko-fi.com/cuadratico")))
                 }
                 .setNeutralButton("No"){_, _ ->
-                    pref.edit().putBoolean("from", true).commit()
+                    pref.edit().putBoolean("from", true).apply()
                 }
 
             alertdialog_donacion.setCancelable(false)
@@ -180,12 +172,15 @@ class MainActivity : AppCompatActivity() {
 
             alert.show()
         }
-        val bluetooth_a = BluetoothAdapter.getDefaultAdapter()
+        val bluetooth_a = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+            bluetoothManager.adapter
+        } else {
+            @Suppress("DEPRECATION")
+            BluetoothAdapter.getDefaultAdapter()
+        }
 
         back.setOnClickListener {
-            if (scope.isActive){
-                scope.cancel()
-            }
             if (bluetooth_a.isDiscovering){
                 bluetooth_a.cancelDiscovery()
                 unregisterReceiver(broadcast)
@@ -200,49 +195,82 @@ class MainActivity : AppCompatActivity() {
             save_device.visibility = View.INVISIBLE
         }
 
+        val deviceFilter = findViewById<EditText>(R.id.device_filter)
+        
         search_device.setOnClickListener {
             d = false
             invisible()
+            deviceFilter.visibility = View.VISIBLE
 
-            // Request Bluetooth visibility for 300 seconds
-            val discoverableIntent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
-                putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
-            }
-            startActivity(discoverableIntent)
+            deviceFilter.addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: Editable?) {
+                    adapter.filter(s.toString())
+                }
+            })
 
-            broadcast = object: BroadcastReceiver(){
-                override fun onReceive(p0: Context?, intent: Intent?) {
+            try {
+                // Request Bluetooth visibility for 300 seconds
+                val discoverableIntent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
+                    putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
+                }
+                startActivity(discoverableIntent)
 
-                    when(intent?.action){
+                broadcast = object: BroadcastReceiver(){
+                    override fun onReceive(p0: Context?, intent: Intent?) {
+                        try {
+                            when(intent?.action){
+                                BluetoothDevice.ACTION_FOUND -> {
+                                    if (ActivityCompat.checkSelfPermission(applicationContext, permisos_list[1]) == PackageManager.PERMISSION_GRANTED) {
+                                        val device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                            intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
+                                        } else {
+                                            @Suppress("DEPRECATION")
+                                            intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+                                        }
+                                        
+                                        // Update UI on main thread
+                                        runOnUiThread {
+                                            device_list.add(device_data(device?.name ?: "Unknown", device?.address ?: ""))
+                                            adapter.notifyDataSetChanged() // Use this instead of custom upgrade()
+                                        }
+                                    }
+                                }
 
-                        BluetoothDevice.ACTION_FOUND -> {
-                            if (ActivityCompat.checkSelfPermission(applicationContext, permisos_list[1]) == PackageManager.PERMISSION_GRANTED) {
-                                val device: BluetoothDevice? = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
-                                device_list.add(device_data(device?.name.toString(), device?.address.toString()))
-                                adapter.upgrade()
+                                BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> {
+                                    try {
+                                        unregisterReceiver(broadcast)
+                                    } catch(e: Exception) {
+                                        Log.e("BluetoothError", "Error unregistering receiver", e)
+                                    }
+                                    bluetooth_a.cancelDiscovery()
+                                    runOnUiThread {
+                                        Toast.makeText(applicationContext, "Search complete", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
                             }
-                        }
-
-                        BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> {
-                            unregisterReceiver(broadcast)
-                            bluetooth_a.cancelDiscovery()
-                            Toast.makeText(applicationContext, "There are no more devices", Toast.LENGTH_SHORT).show()
+                        } catch(e: Exception) {
+                            Log.e("BluetoothError", "Error in broadcast receiver", e)
                         }
                     }
                 }
 
-            }
+                if (!bluetooth_a.isDiscovering){
+                    bluetooth_a.startDiscovery()
+                }
 
-            Toast.makeText(this, "The search has begun", Toast.LENGTH_SHORT).show()
+                val intent = IntentFilter(BluetoothDevice.ACTION_FOUND).apply {
+                    addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED) 
+                }
+                registerReceiver(broadcast, intent)
 
-            if (!bluetooth_a.isDiscovering){
-                bluetooth_a.startDiscovery()
-            }
+                Toast.makeText(this, "Search started", Toast.LENGTH_SHORT).show()
 
-            val intent = IntentFilter(BluetoothDevice.ACTION_FOUND).apply {
-                addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
+            } catch(e: Exception) {
+                Log.e("BluetoothError", "Error starting device search", e)
+                Toast.makeText(this, "Error starting search: ${e.message}", Toast.LENGTH_SHORT).show()
             }
-            registerReceiver(broadcast, intent)
         }
 
         save_device.setOnClickListener {
@@ -262,33 +290,31 @@ class MainActivity : AppCompatActivity() {
                 total_opor.visibility = View.VISIBLE
                 very_pass.visibility = View.INVISIBLE
 
-                input_pass.addTextChangedListener {pass ->
-                    if (pass?.toList()?.size == pref.getInt("size", 0)){
-                        if (very(pass.toString())){
+                input_pass.addTextChangedListener { editable ->
+                    val pass = editable.toString()
+                    if (pass.length == pref.getInt("size", 0)){
+                        if (very(pass)){
                             val db = device_db(this)
 
                             if (db.extraccion()){
                                 invisible()
-                                scope.start()
                                 pref.edit().putInt("long", device_list.size).apply()
                                 d = true
                                 val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-
-                                for ((name, mac, position, iv) in device_list){
+                                for ((_, mac, position, iv) in device_list){
                                     val c = Cipher.getInstance("AES/GCM/NoPadding")
-                                    c.init(Cipher.DECRYPT_MODE, ks.getKey(pass.toString(), null), GCMParameterSpec(128, Base64.getDecoder().decode(iv)))
-
+                                    c.init(Cipher.DECRYPT_MODE, ks.getKey(pass, null), GCMParameterSpec(128, Base64.getDecoder().decode(iv)))
                                     device_list[position].mac = String(c.doFinal(Base64.getDecoder().decode(mac)))
                                     device_list[position].iv = ""
-
-                                    adapter.upgrade()
+                                    adapter.notifyDataSetChanged()
                                 }
                             }else {
                                 Toast.makeText(this, "The database is empty", Toast.LENGTH_SHORT).show()
                             }
                             dialog.dismiss()
-
-                        }else {
+                        }
+                        else
+                        {
                             input_pass.setText("")
                             opor.text = (opor.text.toString().toInt() - 1).toString()
                             pref.edit().putInt("opor", opor.text.toString().toInt()).apply()
@@ -301,7 +327,9 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 }
-            }else {
+            }
+            else
+            {
                 Toast.makeText(this, "Write the password you want", Toast.LENGTH_SHORT).show()
             }
 
@@ -312,13 +340,12 @@ class MainActivity : AppCompatActivity() {
                         .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                         .build()
                     val kg = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
-                    kg.init(kgs)
+                    kg.init(kgs as AlgorithmParameterSpec)
                     kg.generateKey()
-                    pref.edit().putBoolean("pass", true).commit()
+                    pref.edit().putBoolean("pass", true).apply()
                     Log.e("error", pref.getBoolean("pass", false).toString())
-                    pref.edit().putInt("size", input_pass.text.toString().toList().size).commit()
-                    pref = EncryptedSharedPreferences.create(this, "as", mk, EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV, EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
-                    pref.edit().putString("key", input_pass.text.toString()).commit()
+                    pref.edit().putInt("size", input_pass.text.toString().toList().size).apply()
+                    pref.edit().putString("key", input_pass.text.toString()).apply()
 
                     Toast.makeText(this, "Your key has been generated", Toast.LENGTH_SHORT).show()
                     dialog.dismiss()
@@ -326,7 +353,6 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(this, "You are missing ${8 - input_pass.text.toString().toList().size} characters", Toast.LENGTH_SHORT).show()
                 }
             }
-
             dialog.setContentView(view)
             dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             dialog.show()
@@ -372,11 +398,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray, deviceId: Int) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults, deviceId)
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
 
         if (requestCode == 100 && ActivityCompat.checkSelfPermission(this, permisos_list[1]) == PackageManager.PERMISSION_GRANTED){
-            val a = BluetoothAdapter.getDefaultAdapter()
+            val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+            val a = bluetoothManager.adapter
             if (!a.isEnabled) {
                 startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
             }
@@ -389,5 +416,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    public override fun recreate() {
+        super.recreate()
+        findViewById<EditText>(R.id.device_filter).visibility = View.GONE
+    }
 
 }

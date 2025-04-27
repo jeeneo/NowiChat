@@ -6,4 +6,6 @@
     <color name="blue_2">#2f4b64</color>
     <color name="gris">#454547</color>
     <color name="gris_2">#cac8cb</color>
+    <color name="dark_gray">#1C1C1C</color>
+    <color name="chat_background">#121212</color>
 </resources>

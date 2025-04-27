@@ -24,7 +24,6 @@ import java.util.Base64
 import javax.crypto.Cipher
 import com.nowichat.db.device_db.Companion.device_list
 import com.nowichat.db.mac_db
-import com.nowichat.upgrade
 import java.security.MessageDigest
 
 class device_holder(view: View): RecyclerView.ViewHolder(view) {
@@ -69,7 +68,6 @@ class device_holder(view: View): RecyclerView.ViewHolder(view) {
                 val pref = EncryptedSharedPreferences.create(context, "as", mk, EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV, EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
 
                 delete.setOnClickListener {
-                    upgrade = true
                     db.delete(data.position)
                     mac_db.delete(data.position)
                     dialog.dismiss()
@@ -77,7 +75,6 @@ class device_holder(view: View): RecyclerView.ViewHolder(view) {
                     dialog.dismiss()
                 }
                 edit.setOnClickListener {
-                    upgrade = true
                     val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
                     val c = Cipher.getInstance("AES/GCM/NoPadding")
                     c.init(Cipher.ENCRYPT_MODE, ks.getKey(pref.getString("key", ""), null))

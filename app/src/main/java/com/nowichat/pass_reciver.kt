@@ -46,11 +46,11 @@ fun delet_all(context: Activity){
         .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
         .build()
     var pref = EncryptedSharedPreferences.create(context, "as", mk, EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV, EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
-    pref.edit().clear().commit()
+    pref.edit().clear().apply()
 
     pref = EncryptedSharedPreferences.create(context, "ap", mk, EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV, EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
-    pref.edit().clear().commit()
-    pref.edit().putBoolean("block", true).commit()
+    pref.edit().clear().apply()
+    pref.edit().putBoolean("block", true).apply()
 
     val db_device = device_db(context)
     db_device.all()
