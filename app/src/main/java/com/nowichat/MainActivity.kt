@@ -29,6 +29,7 @@ import android.view.View
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
@@ -72,6 +73,28 @@ var d = false
 class MainActivity : AppCompatActivity() {
     private lateinit var adapter : device_adapter
     private lateinit var broadcast : BroadcastReceiver
+    
+    // Add bluetooth adapter at class level
+    private val bluetooth_a by lazy {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+            bluetoothManager.adapter
+        } else {
+            @Suppress("DEPRECATION")
+            BluetoothAdapter.getDefaultAdapter()
+        }
+    }
+
+    // Add location settings launcher
+    private val locationSettingsLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val locationManager = getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
+        if (locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER)) {
+            startBluetoothScan()
+        }
+    }
+
     private val permisos_list = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         arrayOf(
             Manifest.permission.BLUETOOTH_SCAN,
@@ -134,31 +157,9 @@ class MainActivity : AppCompatActivity() {
         var pref = EncryptedSharedPreferences.create(this, "ap", mk, EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV, EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
 
         if (pref.getBoolean("block", false)){
-            Toast.makeText(this, "You need to clear the cache to use NowiChat", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "You need to clear application data to use NowiChat", Toast.LENGTH_SHORT).show()
             startActivity(Intent(Settings.ACTION_APPLICATION_SETTINGS))
             finishAffinity()
-        }
-
-        if (!pref.getBoolean("from", false)){
-            val alertdialog_donacion = AlertDialog.Builder(this)
-
-                .setTitle("Do you want to contribute ideas or donate money to the NowiPass project?")
-                .setPositiveButton("Ideas"){_, _ ->
-                    pref.edit().putBoolean("from", true).apply()
-
-                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://docs.google.com/forms/d/e/1FAIpQLScYWzcI8esljOk2NViS1O2yVN3I7_4UaNauJen0fSb3lUyTgw/viewform?usp=dialog")))
-                }
-                .setNegativeButton("Donate"){_, _ ->
-                    pref.edit().putBoolean("from", true).apply()
-
-                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://ko-fi.com/cuadratico")))
-                }
-                .setNeutralButton("No"){_, _ ->
-                    pref.edit().putBoolean("from", true).apply()
-                }
-
-            alertdialog_donacion.setCancelable(false)
-            alertdialog_donacion.show()
         }
         val db_mac = mac_db(this)
         db_mac.extraccion()
@@ -171,13 +172,6 @@ class MainActivity : AppCompatActivity() {
             alert.setPositiveButton("Yes"){_, _ -> delet_all(this)}
 
             alert.show()
-        }
-        val bluetooth_a = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-            bluetoothManager.adapter
-        } else {
-            @Suppress("DEPRECATION")
-            BluetoothAdapter.getDefaultAdapter()
         }
 
         back.setOnClickListener {
@@ -210,67 +204,20 @@ class MainActivity : AppCompatActivity() {
                 }
             })
 
-            try {
-                // Request Bluetooth visibility for 300 seconds
-                val discoverableIntent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
-                    putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
-                }
-                startActivity(discoverableIntent)
-
-                broadcast = object: BroadcastReceiver(){
-                    override fun onReceive(p0: Context?, intent: Intent?) {
-                        try {
-                            when(intent?.action){
-                                BluetoothDevice.ACTION_FOUND -> {
-                                    if (ActivityCompat.checkSelfPermission(applicationContext, permisos_list[1]) == PackageManager.PERMISSION_GRANTED) {
-                                        val device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                            intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
-                                        } else {
-                                            @Suppress("DEPRECATION")
-                                            intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
-                                        }
-                                        
-                                        // Update UI on main thread
-                                        runOnUiThread {
-                                            device_list.add(device_data(device?.name ?: "Unknown", device?.address ?: ""))
-                                            adapter.notifyDataSetChanged() // Use this instead of custom upgrade()
-                                        }
-                                    }
-                                }
-
-                                BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> {
-                                    try {
-                                        unregisterReceiver(broadcast)
-                                    } catch(e: Exception) {
-                                        Log.e("BluetoothError", "Error unregistering receiver", e)
-                                    }
-                                    bluetooth_a.cancelDiscovery()
-                                    runOnUiThread {
-                                        Toast.makeText(applicationContext, "Search complete", Toast.LENGTH_SHORT).show()
-                                    }
-                                }
-                            }
-                        } catch(e: Exception) {
-                            Log.e("BluetoothError", "Error in broadcast receiver", e)
-                        }
+            // Check if location is enabled
+            val locationManager = getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
+            if (!locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER)) {
+                AlertDialog.Builder(this)
+                    .setMessage("Location services are required to scan for Bluetooth devices. Please enable location.")
+                    .setPositiveButton("Enable") { _, _ ->
+                        locationSettingsLauncher.launch(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
                     }
-                }
-
-                if (!bluetooth_a.isDiscovering){
-                    bluetooth_a.startDiscovery()
-                }
-
-                val intent = IntentFilter(BluetoothDevice.ACTION_FOUND).apply {
-                    addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED) 
-                }
-                registerReceiver(broadcast, intent)
-
-                Toast.makeText(this, "Search started", Toast.LENGTH_SHORT).show()
-
-            } catch(e: Exception) {
-                Log.e("BluetoothError", "Error starting device search", e)
-                Toast.makeText(this, "Error starting search: ${e.message}", Toast.LENGTH_SHORT).show()
+                    .setNegativeButton("Cancel", null)
+                    .show()
+                return@setOnClickListener
             }
+
+            startBluetoothScan()
         }
 
         save_device.setOnClickListener {
@@ -421,4 +368,67 @@ class MainActivity : AppCompatActivity() {
         findViewById<EditText>(R.id.device_filter).visibility = View.GONE
     }
 
+    // Move scanning logic to separate function
+    private fun startBluetoothScan() {
+        try {
+            val discoverableIntent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
+                putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
+            }
+            startActivity(discoverableIntent)
+
+            broadcast = object: BroadcastReceiver(){
+                override fun onReceive(p0: Context?, intent: Intent?) {
+                    try {
+                        when(intent?.action){
+                            BluetoothDevice.ACTION_FOUND -> {
+                                if (ActivityCompat.checkSelfPermission(applicationContext, permisos_list[1]) == PackageManager.PERMISSION_GRANTED) {
+                                    val device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
+                                    } else {
+                                        @Suppress("DEPRECATION")
+                                        intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+                                    }
+                                    
+                                    // Update UI on main thread
+                                    runOnUiThread {
+                                        device_list.add(device_data(device?.name ?: "Unknown", device?.address ?: ""))
+                                        adapter.notifyDataSetChanged() // Use this instead of custom upgrade()
+                                    }
+                                }
+                            }
+
+                            BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> {
+                                try {
+                                    unregisterReceiver(broadcast)
+                                } catch(e: Exception) {
+                                    Log.e("BluetoothError", "Error unregistering receiver", e)
+                                }
+                                bluetooth_a.cancelDiscovery()
+                                runOnUiThread {
+                                    Toast.makeText(applicationContext, "Search complete", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    } catch(e: Exception) {
+                        Log.e("BluetoothError", "Error in broadcast receiver", e)
+                    }
+                }
+            }
+
+            if (!bluetooth_a.isDiscovering){
+                bluetooth_a.startDiscovery()
+            }
+
+            val intent = IntentFilter(BluetoothDevice.ACTION_FOUND).apply {
+                addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED) 
+            }
+            registerReceiver(broadcast, intent)
+
+            Toast.makeText(this, "Search started", Toast.LENGTH_SHORT).show()
+
+        } catch(e: Exception) {
+            Log.e("BluetoothError", "Error starting device search", e)
+            Toast.makeText(this, "Error starting search: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
 }
