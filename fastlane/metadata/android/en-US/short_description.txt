@@ -1,1 +1,0 @@
-NowiChat is a chat app with bluetooth networking and end-to-end security.
